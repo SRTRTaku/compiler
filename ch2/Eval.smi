@@ -1,0 +1,16 @@
+_require "basis.smi"
+_require "./TM.smi"
+structure Eval = 
+struct
+
+val Hd : TM.S list -> TM.S
+val Tl : TM.S list -> TM.S list
+val Cons : TM.S * TM.S list -> TM.S list
+val eval : TM.program -> TM.tape -> TM.tape
+val moveL : TM.tape -> TM.tape
+val moveR : TM.tape -> TM.tape
+val exec : TM.delta -> TM.Q * TM.tape -> TM.tape
+val move : TM.D -> TM.tape -> TM.tape
+
+end
+
