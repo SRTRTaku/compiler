@@ -4,11 +4,14 @@ struct
 
 datatype D = R | L
 datatype S = B | I | O
-datatype Q = M | H
+datatype Q = M | H | MR | ST
 type delta = ((Q * S) * (Q * S * D)) list
 type program = Q * delta
 type tape = S list * S * S list
 val P : program
+
+(* Exercise 2.2 *)
+val P2 : program
 
 end
 
