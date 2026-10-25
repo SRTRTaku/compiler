@@ -1,6 +1,6 @@
 import qualified Data.Set as Set
 import qualified Data.Map as Map
-import Data.List (singleton)
+import Data.List (singleton, mapAccumL)
 
 type S = String -- Sigma
 type Q = Int -- State
@@ -58,23 +58,84 @@ regexToNFA (Chr x) = (qs, sigma, delta, q0, f)
     delta = Map.fromList [(0, Map.fromList [(x, Set.fromList [1])])]
     q0 = 0
     f = Set.fromList [1]
+regexToNFA (Cat r1 r2) = (qs, sigma, delta, q0, f)
+    where
+    nfa1 = regexToNFA r1
+    nfa2 = regexToNFA r2
+    (qn0, (qs1, sigma, delta1, q01, f1)) = reallocation initialState nfa1
+    (qn0', (qs2, _, delta2, q02, f2)) = reallocation qn0 nfa2
+    (p, qn0'') = stateSupply qn0'
+    (q, _) = stateSupply qn0''
+    qs = Set.insert p
+       . Set.insert q
+       $ Set.union qs1 qs2
+    delta = Map.insert q12 (Map.fromList [("", Set.singleton q)])
+          . Map.insert q11 (Map.fromList [("", Set.singleton q02)])
+          . Map.insert p (Map.fromList [("", Set.singleton q01)])
+          $ Map.union delta1 delta2
+    q11 = Set.elemAt 0 f1
+    q12 = Set.elemAt 0 f2
+    q0 = p
+    f = Set.singleton q
 regexToNFA r = error "not yet implementes"
+
+reallocation :: SS -> NFA -> (SS, NFA)
+reallocation qn0 (qs, s, delta, q0, f)
+    = (qn0', (qs', s, delta', q0', f'))
+    where
+    (qn0', mp) =  mkMap qn0 (Set.toList qs)
+    qs' = substituteSet mp qs
+    delta' = substituteDelta mp delta
+    q0' = sb mp q0
+    f' = substituteSet mp f
+
+
+substituteSet :: [(Q, Q)] -> Q' -> Q'
+substituteSet mp qs = Set.map (sb mp) qs
+
+substituteDelta :: [(Q, Q)] -> Delta -> Delta
+substituteDelta mp delta = delta''
+    where
+    delta' = Map.mapKeys (sb mp) delta
+    delta'' = Map.map (Map.map (Set.map (sb mp))) delta'
+
+sb :: [(Q, Q)] -> Q  -> Q
+sb mp x = case lookup x mp of
+    Nothing -> error "sb"
+    Just x' -> x'
+
+mkMap :: SS -> [Q] -> (SS, [(Q, Q)])
+mkMap qn0 qs = mapAccumL f qn0 qs
+    where
+    f qn q = (qn', (q, q'))
+        where
+        (q', qn') = stateSupply qn
+
+newtype SS = SS Int
+initialState :: SS
+initialState = SS 0
+
+stateSupply :: SS -> (Q, SS)
+stateSupply (SS q) = (q, SS (q + 1))
 
 
 runDFA :: String -> DFA -> Bool
 runDFA xs dfa@(qs', s', delta', q0', f') = q' `Set.member` f'
+--runDFA :: String -> DFA -> Q'
+--runDFA xs dfa@(qs', s', delta', q0', f') = q'
     where
     q' = runDelta' q0' (reverse xs)
     runDelta' :: Q' -> String -> Q'
     runDelta' q [] = q
-    runDelta' q (x:xs) = runDelta' nextQ xs
+    runDelta' q (x:xs) = del (runDelta' q xs)
         where
-        d = delta' Map.! q
-        nextQ
-            | Map.member q delta' && Map.member [x] d = d Map.! [x]
-            | otherwise = q
-
+        del y
+            | Map.member y delta' && Map.member [x] d = d Map.! [x]
+            | otherwise = y
+            where
+            d = delta' Map.! y
 run :: Regex -> String -> Bool
+--run :: Regex -> String -> Q'
 run regex s = runDFA s . toDFA . regexToNFA $ regex
 
 --
@@ -150,5 +211,11 @@ regex1 :: Regex
 regex1 = Chr "a" -- a
 
 test1 :: Bool
-test1 = run regex1 "xyz"
+test1 = run regex1 "a"
 --test1 = runDFA "" . toDFA . regexToNFA $ regex1
+
+regex2 :: Regex
+regex2 = Cat (Chr "y") (Chr "z")
+
+test2 :: Bool
+test2 = run regex2 "yz"
