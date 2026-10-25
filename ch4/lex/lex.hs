@@ -77,6 +77,25 @@ regexToNFA (Cat r1 r2) = (qs, sigma, delta, q0, f)
     q12 = Set.elemAt 0 f2
     q0 = p
     f = Set.singleton q
+regexToNFA (Alt r1 r2) = (qs, sigma, delta, q0, f)
+    where
+    nfa1 = regexToNFA r1
+    nfa2 = regexToNFA r2
+    (qn0, (qs1, sigma, delta1, q01, f1)) = reallocation initialState nfa1
+    (qn0', (qs2, _, delta2, q02, f2)) = reallocation qn0 nfa2
+    (p, qn0'') = stateSupply qn0'
+    (q, _) = stateSupply qn0''
+    qs = Set.insert p
+       . Set.insert q
+       $ Set.union qs1 qs2
+    delta = Map.insert q12 (Map.fromList [("", Set.singleton q)])
+          . Map.insert q11 (Map.fromList [("", Set.singleton q)])
+          . Map.insert p (Map.fromList [("", Set.fromList [q01, q02])])
+          $ Map.union delta1 delta2
+    q11 = Set.elemAt 0 f1
+    q12 = Set.elemAt 0 f2
+    q0 = p
+    f = Set.singleton q
 regexToNFA r = error "not yet implementes"
 
 reallocation :: SS -> NFA -> (SS, NFA)
@@ -210,12 +229,24 @@ delD delta q s = cl delta q''
 regex1 :: Regex
 regex1 = Chr "a" -- a
 
-test1 :: Bool
-test1 = run regex1 "a"
+test10 :: Bool
+test10 = run regex1 "a"
 --test1 = runDFA "" . toDFA . regexToNFA $ regex1
+--
+test11 :: Bool
+test11 = run regex1 "abc"
 
 regex2 :: Regex
 regex2 = Cat (Chr "y") (Chr "z")
 
-test2 :: Bool
-test2 = run regex2 "yz"
+test20 :: Bool
+test20 = run regex2 "yz"
+
+test21 :: Bool
+test21 = run regex2 "y"
+
+regex3 :: Regex
+regex3 = Alt regex1 regex2
+
+test30 :: Bool
+test30 = run regex3 "yz"
