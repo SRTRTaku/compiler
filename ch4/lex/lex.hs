@@ -43,7 +43,7 @@ data Regex = Empty           -- empty set
            deriving Show
 
 sigma :: [S]
-sigma = map singleton ['a'..'z']
+sigma = map singleton $ ['a'..'z'] ++ ['A'..'Z'] ++ ['@', '.']
 
 regexToNFA :: Regex -> NFA
 regexToNFA Empty = (qs, sigma, delta, q0, f)
@@ -96,7 +96,21 @@ regexToNFA (Alt r1 r2) = (qs, sigma, delta, q0, f)
     q12 = Set.elemAt 0 f2
     q0 = p
     f = Set.singleton q
-regexToNFA r = error "not yet implementes"
+regexToNFA (Star r1) = (qs, sigma, delta, q0, f)
+    where
+    nfa1 = regexToNFA r1
+    (qn0, (qs1, sigma, delta1, q01, f1)) = reallocation initialState nfa1
+    (p, qn0') = stateSupply qn0
+    (q, _) = stateSupply qn0'
+    qs = Set.insert p
+       . Set.insert q
+       $ qs1
+    delta = Map.insert q11 (Map.fromList [("", Set.fromList [q01, q])])
+          . Map.insert p (Map.fromList [("", Set.fromList [q01, q])])
+          $ delta1
+    q11 = Set.elemAt 0 f1
+    q0 = p
+    f = Set.singleton q
 
 reallocation :: SS -> NFA -> (SS, NFA)
 reallocation qn0 (qs, s, delta, q0, f)
@@ -250,3 +264,14 @@ regex3 = Alt regex1 regex2
 
 test30 :: Bool
 test30 = run regex3 "yz"
+
+regex4 :: Regex
+regex4 = Star regex2
+
+regex50 :: Regex
+regex50 = foldl (\acc x -> Alt x acc) Empty $ map (Chr . singleton) ['a'..'z']
+regex51 = 
+    Cat 
+        (Cat (Star regex50) (Chr "@")) 
+        (Star regex50)
+
